@@ -11,7 +11,7 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 add_library(${PROJECT_NAME} SHARED
-    cache.h cache.cpp)
+    cache.h)
 
 add_executable(${PROJECT_NAME}_test "main.cpp")
 

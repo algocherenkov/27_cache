@@ -13,40 +13,30 @@
 using namespace boost::unit_test;
 BOOST_AUTO_TEST_SUITE(test_suite_main)
 
-BOOST_AUTO_TEST_CASE(cache_test)
+BOOST_AUTO_TEST_CASE(cache_base_test)
 {
-    auto start = std::chrono::high_resolution_clock::now();
+    using namespace std::chrono_literals;
 
-    // unsync the I/O of C and C++.
-    std::ios_base::sync_with_stdio(false);
+    TimeBasedCache<std::string, int> cache(10, 25);
 
+    for(int i = 0; i < 11; i++)
+        cache.set(i, "item_" + std::to_string(i));
 
+    auto result = cache.get(1);
+    BOOST_CHECK_MESSAGE(result.first == true, "wrong result, cache should have item_1");
 
-    auto end = std::chrono::high_resolution_clock::now();
+    result = cache.get(0);
+    BOOST_CHECK_MESSAGE(result.first == false, "wrong result, cache should have replace item_0 with item_1");
 
-    // Calculating total time taken by the BM algorithm.
-    double time_taken =
-      std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+    std::this_thread::sleep_for(25ms);
 
-    time_taken *= 1e-9;
-    std::cout << "BM algorithm's execution time: " << std::fixed << time_taken << std::setprecision(9) << " sec" << std::endl;
-    std::ios_base::sync_with_stdio(true);
-    //=============================================================================================
-    start = std::chrono::high_resolution_clock::now();
+    result = cache.get(10);
+    BOOST_CHECK_MESSAGE(result.first == true, "wrong result, cache should have item_10 up to this moment");
 
-    // unsync the I/O of C and C++.
-    std::ios_base::sync_with_stdio(false);
+    std::this_thread::sleep_for(100us);
 
-
-
-    end = std::chrono::high_resolution_clock::now();
-
-    // Calculating total time taken by the BM algorithm.
-    time_taken =
-      std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-
-    time_taken *= 1e-9;
-    std::cout << "KMP algorithm's execution time: " << std::fixed << time_taken << std::setprecision(9) << " sec" << std::endl;
+    result = cache.get(1);
+    BOOST_CHECK_MESSAGE(result.first == false, "wrong result, cache should have delete item_1 since time expired");
 }
 
 BOOST_AUTO_TEST_SUITE_END()

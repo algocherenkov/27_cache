@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <thread>
 #include <list>
+#include <atomic>
 
 template <typename T, typename Key,
           typename = typename std::enable_if<std::is_default_constructible<T>::value>::type>
@@ -15,12 +16,15 @@ public:
     TimeBasedCache(size_t size = 10, double time = 3 /*in ms*/):
         m_size(size),
         m_expirationTime(time)
-    {}
+    {
+        m_daemonDown.store(false);
+    }
 
     TimeBasedCache(const TimeBasedCache& other) = delete;
 
     ~TimeBasedCache()
     {
+        m_daemonDown.store(true);
         if(m_daemon.joinable())
             m_daemon.join();
     }
@@ -50,8 +54,10 @@ public:
 
     std::pair<bool, T> get(Key key)
     {
+        std::unique_lock<std::mutex> guardData(m_dataStoreMutex);
         if(m_dataStore.count(key))
             return std::pair<bool, T>(true, m_dataStore[key]);
+        guardData.unlock();
         return std::pair<bool, T>(false, T());
     }
 
@@ -70,8 +76,10 @@ private:
 
     void daemonWithClock()
     {
-        while (!m_times.empty())
+        while (!m_times.empty() && !m_daemonDown.load())
         {
+            using namespace std::chrono_literals;
+            std::this_thread::sleep_for(1ms);
             std::lock_guard<std::mutex> guardTime(m_timesMutex);
             for(auto& time: m_times)
             {
@@ -86,6 +94,7 @@ private:
         }
         m_daemonActivated = false;
     }
+
 private:
     size_t m_size;
     double m_expirationTime;
@@ -99,4 +108,5 @@ private:
     std::thread m_daemon;
 
     bool m_daemonActivated {false};
+    std::atomic<bool> m_daemonDown;
 };
